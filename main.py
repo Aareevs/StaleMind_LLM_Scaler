@@ -1,37 +1,38 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Optional
-from env.environment import StaleMindEnv
+from env.environment import StaleMindEnv as DriftGym
 
-app = FastAPI(title="StaleMind Environment API")
+app = FastAPI()
 
-env = StaleMindEnv()
+env = DriftGym()
 env.reset()
 
-class ActionRequest(BaseModel):
-    type: str
-    content: Optional[str] = ""
 
-class ResetRequest(BaseModel):
-    scenario_index: Optional[int] = None
+@app.get("/")
+def home():
+    return {"message": "StaleMind API running"}
+
+
+class Action(BaseModel):
+    type: str
+    content: str = ""
 
 @app.post("/reset")
-def reset(req: ResetRequest = None):
-    index = req.scenario_index if req else None
-    obs = env.reset(scenario_index=index)
+def reset():
+    obs = env.reset()
     return {"observation": obs}
 
+
 @app.post("/step")
-def step(action: ActionRequest):
-    act_dict = {"type": action.type, "content": action.content}
-    obs, reward, done, info = env.step(act_dict)
+def step(action: Action):
+    obs, reward, done, _ = env.step(action.model_dump() if hasattr(action, 'model_dump') else action.dict())
     return {
         "observation": obs,
-        "reward": reward,
-        "done": done,
-        "info": info
+        "reward": {"score": reward},
+        "done": done
     }
 
+
 @app.get("/state")
-def get_state():
-    return {"observation": env.state()}
+def state():
+    return env.state()
